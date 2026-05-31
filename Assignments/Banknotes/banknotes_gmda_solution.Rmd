@@ -1,0 +1,396 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.19.3
+  kernelspec:
+    display_name: Python 3
+    name: python3
+---
+
+<!-- #region id="9uNXnFYCH_kS" -->
+The task in this assignment is to detect the  counterfeit banknotes. The data set is based on [banknote authentication Data Set ](https://archive.ics.uci.edu/ml/datasets/banknote+authentication#) from UCI Machine Learning repository.  You have already used this set but this time I have removed  the first column. The set  `banknote_authentication.csv` can be found in the `data`  directory.
+<!-- #endregion -->
+
+```{python id="sI0XhWhw6YW9"}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.stats as st
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 206}, id="Z6e4k_2KIDfC", outputId="c2f3bbf5-63af-404a-9cdb-3821a52fe59b"}
+data = pd.read_csv('data/banknote_authentication.csv')
+data.head()
+```
+
+<!-- #region id="7SXfHILJIIiQ" -->
+## Problem
+
+
+### A.
+
+
+Perform the Quadratic Discriminant Analysis on this set. Calculate the confusion matrix, AUC score and plot the ROC curve.
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 1000}, id="t5w59Y_zM640", outputId="118ff60e-4326-4615-b6e9-7d3ae3e5757b"}
+from sklearn.model_selection import train_test_split
+from sklearn.discriminant_analysis import QuadraticDiscriminantAnalysis
+from sklearn.metrics import confusion_matrix, roc_curve, auc
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+X = data[['a1', 'a2', 'a3']]
+y = data['counterfeit']
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.3, random_state=42)
+
+qda = QuadraticDiscriminantAnalysis()
+qda.fit(X_train, y_train)
+
+y_pred_proba_qda = qda.predict_proba(X_test)[:, 1]
+
+# Calculate confusion matrix
+y_pred_qda = qda.predict(X_test)
+conf_matrix_qda = confusion_matrix(y_test, y_pred_qda)
+print("Quadratic Discriminant Analysis Confusion Matrix:")
+print(conf_matrix_qda)
+plt.figure(figsize=(12, 6))
+plt.subplot(1, 2, 1)
+sns.heatmap(conf_matrix_qda, annot=True, fmt='d', cmap='Blues', cbar=False, xticklabels=['Predicted 0', 'Predicted 1'], yticklabels=['Actual 0', 'Actual 1'])
+plt.title('Confusion Matrix - QDA')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+
+# Calculate AUC score
+fpr_qda, tpr_qda, _ = roc_curve(y_test, y_pred_proba_qda)
+auc_qda = auc(fpr_qda, tpr_qda)
+print(f"Quadratic Discriminant Analysis AUC Score: {auc_qda:.4f}")
+
+# Plot ROC curve
+plt.figure(figsize=(8, 6))
+plt.plot(fpr_qda, tpr_qda, color='darkorange', lw=2, label=f'QDA ROC curve (AUC = {auc_qda:.2f})')
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.legend(loc='lower right')
+plt.grid(True)
+plt.show()
+```
+
+<!-- #region id="x-yDsoEhM6E6" -->
+### B.
+
+
+Perform Gaussian Mixture Discriminant Analysis on this set as described in the `gaussian_mixture_model_EM_algorithm` notebook. Use two components for positives and two components for negatives. Calculate the confusion matrix, AUC score and plot the ROC curve.
+<!-- #endregion -->
+
+```{python id="bXwhijEJV9BV"}
+import numpy as np
+from sklearn.mixture import GaussianMixture
+from sklearn.metrics import confusion_matrix, roc_curve, auc
+import matplotlib.pyplot as plt
+from scipy.special import logsumexp
+
+def make_predict_proba(gm0_model, gm1_model, pi1):
+    """
+    Returns a callable function that predicts the posterior probability of being in class 1
+    given data X_data, using trained Gaussian Mixture Models and a prior probability
+    """
+    log_prior_0 = np.log(1 - pi1)
+    log_prior_1 = np.log(pi1)
+
+    def predict_proba_func(X_data):
+        log_likelihood_0 = gm0_model.score_samples(X_data)
+        log_likelihood_1 = gm1_model.score_samples(X_data)
+
+        log_numerator = log_likelihood_1 + log_prior_1
+        log_denominator_term0 = log_likelihood_0 + log_prior_0
+        log_denominator_term1 = log_likelihood_1 + log_prior_1
+
+        log_denominator = logsumexp(np.vstack([log_denominator_term0, log_denominator_term1]), axis=0)
+
+        prob_class1 = np.exp(log_numerator - log_denominator)
+        return prob_class1
+
+    return predict_proba_func
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 1000}, id="V5HOjDOaOoYR", outputId="4138149d-b83f-47e7-c1f6-6f48530ce266"}
+# Separate training by class
+X_train_0 = X_train[y_train == 0]
+X_train_1 = X_train[y_train == 1]
+
+gm0 = GaussianMixture(n_components=2, random_state=42, covariance_type='full')
+gm0.fit(X_train_0)
+
+gm1 = GaussianMixture(n_components=2, random_state=42, covariance_type='full')
+gm1.fit(X_train_1)
+
+# Estimate prior probability of class 1 from training data
+pi1_estimate_problem_b = y_train.mean()
+print(f"Estimated prior probability of class 1: {pi1_estimate_problem_b:.4f}")
+gmda_predictor = make_predict_proba(gm0, gm1, pi1=pi1_estimate_problem_b)
+y_pred_proba_gmda = gmda_predictor(X_test)
+
+# Calculate confusion matrix
+y_pred_gmda = (y_pred_proba_gmda > 0.5).astype(int)
+conf_matrix_gmda = confusion_matrix(y_test, y_pred_gmda)
+print("\nGaussian Mixture Discriminant Analysis Confusion Matrix:")
+print(conf_matrix_gmda)
+plt.subplot(1, 2, 2)
+sns.heatmap(conf_matrix_gmda, annot=True, fmt='d', cmap='Blues', cbar=False, xticklabels=['Predicted 0', 'Predicted 1'], yticklabels=['Actual 0', 'Actual 1'])
+plt.title('Confusion Matrix - GMDA')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+
+plt.tight_layout()
+plt.show()
+
+# Calculate AUC score
+fpr_gmda, tpr_gmda, _ = roc_curve(y_test, y_pred_proba_gmda)
+auc_gmda = auc(fpr_gmda, tpr_gmda)
+print(f"Gaussian Mixture Discriminant Analysis AUC Score: {auc_gmda:.4f}")
+
+# Plot ROC curve
+plt.figure(figsize=(8, 6))
+plt.plot(fpr_gmda, tpr_gmda, color='darkgreen', lw=2, label=f'GMDA ROC curve (AUC = {auc_gmda:.2f})')
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve')
+plt.legend(loc='lower right')
+plt.grid(True)
+plt.show()
+
+fprs_gmda = fpr_gmda
+tprs_gmda = tpr_gmda
+aucs_gmda = auc_gmda
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="vycMgowsIJBz", outputId="ccc23949-78a1-48a6-8f9c-a65c5c32c889"}
+mgda = make_predict_proba(gm0, gm1,pi1=0.445)
+mgda_test_proba[:10]
+
+```
+
+<!-- #region id="kKo4mcVgIRFk" -->
+### C.
+
+
+Use k-fold cross validation to find the optimal number of gaussian components for each class. As before calculate the confusion matrix, AUC score and plot the ROC curve for the best classifier. Assume that maximal number of components in each class is 12.  
+
+
+__Hint__ use the `StratifiedKFold` function from scikit-learn library to generate folds.
+
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 1000}, id="JJcbSrf7iTaj", outputId="34c96671-c90a-4894-b3ca-81a7e1b6a63c"}
+from sklearn.model_selection import StratifiedKFold
+from sklearn.mixture import GaussianMixture
+from sklearn.metrics import confusion_matrix, roc_curve, auc
+import matplotlib.pyplot as plt
+import numpy as np
+import seaborn as sns
+
+max_components = 12
+components_range = range(1, max_components + 1)
+
+best_n_components_0 = 1
+best_n_components_1 = 1
+best_avg_auc = -1
+
+print("Starting k-fold cross-validation for optimal number of Gaussian components")
+
+n_splits = 5
+skf = StratifiedKFold(n_splits=n_splits, shuffle=True, random_state=42)
+
+# Iterate over possible number of components for class 0 (negatives)
+for n_comp0 in components_range:
+    # Iterate over possible number of components for class 1 (positives)
+    for n_comp1 in components_range:
+        fold_auc_scores = []
+
+        for train_index, val_index in skf.split(X_train, y_train):
+            X_train_fold, X_val_fold = X_train.iloc[train_index], X_train.iloc[val_index]
+            y_train_fold, y_val_fold = y_train.iloc[train_index], y_train.iloc[val_index]
+
+            X_train_fold_0 = X_train_fold[y_train_fold == 0]
+            X_train_fold_1 = X_train_fold[y_train_fold == 1]
+
+            actual_n_comp0 = min(n_comp0, len(X_train_fold_0))
+            actual_n_comp1 = min(n_comp1, len(X_train_fold_1))
+
+            if actual_n_comp0 < 1: actual_n_comp0 = 1
+            if actual_n_comp1 < 1: actual_n_comp1 = 1
+
+            gm0_fold = GaussianMixture(n_components=actual_n_comp0, random_state=42, covariance_type='full')
+            gm1_fold = GaussianMixture(n_components=actual_n_comp1, random_state=42, covariance_type='full')
+
+            gm0_fold.fit(X_train_fold_0)
+            gm1_fold.fit(X_train_fold_1)
+
+            pi1_fold = y_train_fold.mean()
+            gmda_predictor_fold = make_predict_proba(gm0_fold, gm1_fold, pi1=pi1_fold)
+            y_pred_proba_val = gmda_predictor_fold(X_val_fold)
+
+            if len(np.unique(y_val_fold)) > 1:
+                fpr_fold, tpr_fold, _ = roc_curve(y_val_fold, y_pred_proba_val)
+                fold_auc = auc(fpr_fold, tpr_fold)
+                fold_auc_scores.append(fold_auc)
+            else:
+                fold_auc_scores.append(0.0)
+
+        avg_auc = np.mean(fold_auc_scores)
+
+        if avg_auc > best_avg_auc:
+            best_avg_auc = avg_auc
+            best_n_components_0 = n_comp0
+            best_n_components_1 = n_comp1
+
+
+print(f"\nOptimal Components: Class 0 = {best_n_components_0}, Class 1 = {best_n_components_1}")
+print(f"Best Average AUC from CV: {best_avg_auc:.4f}")
+
+X_train_0_full = X_train[y_train == 0]
+X_train_1_full = X_train[y_train == 1]
+
+final_n_comp0 = min(best_n_components_0, len(X_train_0_full))
+final_n_comp1 = min(best_n_components_1, len(X_train_1_full))
+
+if final_n_comp0 < 1: final_n_comp0 = 1
+if final_n_comp1 < 1: final_n_comp1 = 1
+
+gm0_optimal = GaussianMixture(n_components=final_n_comp0, random_state=42, covariance_type='full')
+gm1_optimal = GaussianMixture(n_components=final_n_comp1, random_state=42, covariance_type='full')
+
+gm0_optimal.fit(X_train_0_full)
+gm1_optimal.fit(X_train_1_full)
+
+pi1_optimal = y_train.mean()
+
+gmda_optimal_predictor = make_predict_proba(gm0_optimal, gm1_optimal, pi1=pi1_optimal)
+
+y_pred_proba_gmda_optimal = gmda_optimal_predictor(X_test)
+
+# Calculate confusion matrix
+y_pred_gmda_optimal = (y_pred_proba_gmda_optimal > 0.5).astype(int)
+conf_matrix_gmda_optimal = confusion_matrix(y_test, y_pred_gmda_optimal)
+print("\nOptimal Gaussian Mixture Discriminant Analysis Confusion Matrix:")
+print(conf_matrix_gmda_optimal)
+plt.figure(figsize=(6, 5))
+sns.heatmap(conf_matrix_gmda_optimal, annot=True, fmt='d', cmap='Purples', cbar=False,
+            xticklabels=['Predicted 0', 'Predicted 1'], yticklabels=['Actual 0', 'Actual 1'])
+plt.title('Confusion Matrix - Optimal GMDA')
+plt.xlabel('Predicted Label')
+plt.ylabel('True Label')
+plt.show()
+
+# Calculate AUC score
+fpr_gmda_optimal, tpr_gmda_optimal, _ = roc_curve(y_test, y_pred_proba_gmda_optimal)
+auc_gmda_optimal = auc(fpr_gmda_optimal, tpr_gmda_optimal)
+print(f"Optimal Gaussian Mixture Discriminant Analysis AUC Score: {auc_gmda_optimal:.4f}")
+
+# Plot ROC curve
+plt.figure(figsize=(8, 6))
+plt.plot(fpr_gmda_optimal, tpr_gmda_optimal, color='purple', lw=2, label=f'Optimal GMDA ROC curve (AUC = {auc_gmda_optimal:.2f})')
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic (ROC) Curve - Optimal GMDA')
+plt.legend(loc='lower right')
+plt.grid(True)
+plt.show()
+
+fprs_gmda_optimal = fpr_gmda_optimal
+tprs_gmda_optimal = tpr_gmda_optimal
+aucs_gmda_optimal = auc_gmda_optimal
+```
+
+<!-- #region id="Em7BmdHePZPr" -->
+## D.  
+
+
+Assume that 1% of all the customers in your store try to pay with a counterfeit 100PLN bill. If you accept the counterfeit bill you loose 100PLN. If you reject a valid bill,  you may loose the purchase, you estimate this loss as 15PLN on average. For each of the three classifiers find the threshold that minimises your losses and calculates the minimum loss for each classifier. Show the optimal classifiers points on the ROC curves.
+<!-- #endregion -->
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 926}, id="89AuhkVll5XX", outputId="01770114-bc72-4f51-8c4e-97c08697d4f5"}
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.metrics import roc_curve, auc
+
+loss_accept_counterfeit = 100
+loss_reject_valid = 15
+
+p_counterfeit = 0.01
+p_valid = 1 - p_counterfeit
+
+def calculate_expected_loss(fpr, tpr, thresholds, p_valid, p_counterfeit, cost_fp, cost_fn):
+    expected_losses = p_valid * fpr * cost_fp + p_counterfeit * (1 - tpr) * cost_fn
+
+    min_loss_idx = np.argmin(expected_losses)
+    return expected_losses[min_loss_idx], thresholds[min_loss_idx], fpr[min_loss_idx], tpr[min_loss_idx]
+
+# Evaluate QDA Classifier
+th_qda = roc_curve(y_test, y_pred_proba_qda)[2]
+min_loss_qda, opt_threshold_qda, opt_fpr_qda, opt_tpr_qda = calculate_expected_loss(
+    fpr_qda, tpr_qda, th_qda, p_valid, p_counterfeit, loss_reject_valid, loss_accept_counterfeit
+)
+print(f"\n--- QDA Classifier ---")
+print(f"Minimum Expected Loss: {min_loss_qda:.4f}")
+print(f"Optimal Threshold: {opt_threshold_qda:.4f}")
+
+# Evaluate GMDA Classifier
+th_gmda = roc_curve(y_test, y_pred_proba_gmda)[2]
+min_loss_gmda, opt_threshold_gmda, opt_fpr_gmda, opt_tpr_gmda = calculate_expected_loss(
+    fpr_gmda, tpr_gmda, th_gmda, p_valid, p_counterfeit, loss_reject_valid, loss_accept_counterfeit
+)
+print(f"\n--- GMDA (Problem B) Classifier ---")
+print(f"Minimum Expected Loss: {min_loss_gmda:.4f}")
+print(f"Optimal Threshold: {opt_threshold_gmda:.4f}")
+
+# Evaluate Optimal GMDA Classifier
+th_gmda_optimal = roc_curve(y_test, y_pred_proba_gmda_optimal)[2]
+min_loss_gmda_optimal, opt_threshold_gmda_optimal, opt_fpr_gmda_optimal, opt_tpr_gmda_optimal = calculate_expected_loss(
+    fpr_gmda_optimal, tpr_gmda_optimal, th_gmda_optimal, p_valid, p_counterfeit, loss_reject_valid, loss_accept_counterfeit
+)
+print(f"\n--- Optimal GMDA (Problem C) Classifier ---")
+print(f"Minimum Expected Loss: {min_loss_gmda_optimal:.4f}")
+print(f"Optimal Threshold: {opt_threshold_gmda_optimal:.4f}")
+
+# Plot ROC curves with optimal points
+plt.figure(figsize=(10, 8))
+
+# QDA ROC curve
+plt.plot(fpr_qda, tpr_qda, color='darkorange', lw=2, label=f'QDA (AUC = {auc(fpr_qda, tpr_qda):.2f})')
+plt.scatter([opt_fpr_qda], [opt_tpr_qda], color='red', marker='o', s=100, label=f'QDA Optimal Point (Loss={min_loss_qda:.2f})')
+
+# GMDA (Problem B) ROC curve
+plt.plot(fpr_gmda, tpr_gmda, color='darkgreen', lw=2, label=f'GMDA P.B (AUC = {auc(fpr_gmda, tpr_gmda):.2f})')
+plt.scatter([opt_fpr_gmda], [opt_tpr_gmda], color='green', marker='o', s=100, label=f'GMDA P.B Optimal Point (Loss={min_loss_gmda:.2f})')
+
+# Optimal GMDA (Problem C) ROC curve
+plt.plot(fpr_gmda_optimal, tpr_gmda_optimal, color='purple', lw=2, label=f'Optimal GMDA P.C (AUC = {auc(fpr_gmda_optimal, tpr_gmda_optimal):.2f})')
+plt.scatter([opt_fpr_gmda_optimal], [opt_tpr_gmda_optimal], color='blue', marker='o', s=100, label=f'Optimal GMDA P.C Optimal Point (Loss={min_loss_gmda_optimal:.2f})')
+
+plt.plot([0, 1], [0, 1], color='navy', lw=2, linestyle='--')
+plt.xlim([0.0, 1.0])
+plt.ylim([0.0, 1.05])
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('Receiver Operating Characteristic (ROC) Curves with Optimal Operating Points')
+plt.legend(loc='lower right')
+plt.grid(True)
+plt.show()
+```
