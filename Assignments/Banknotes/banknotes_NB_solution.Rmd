@@ -1,0 +1,345 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.19.3
+  kernelspec:
+    display_name: Python 3
+    name: python3
+---
+
+<!-- #region id="RqTbGP_MNObd" -->
+The task in this assignment is to detect the  counterfeit banknotes. The data set is based on [banknote authentication Data Set ](https://archive.ics.uci.edu/ml/datasets/banknote+authentication#) from UCI Machine Learning repository. The first three columns denote different parameters obtained from the photographs of the banknotes and last colum provides the label. Frankly as the dataset does not have any description I don't know  which labels corresponds to real and which to counterfeited banknotes. let's assume that label one (positive) denotes the clounterfeits. The set  [banknote_authentication.csv](./data/banknote_authentication.csv) can be found in the `data`  directory.
+<!-- #endregion -->
+
+```{python id="SLwECdMLMjNw"}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.stats as st
+
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay
+```
+
+```{python id="Hbl38mrnNd8z"}
+import  matplotlib.pyplot as plt
+plt.rcParams['figure.figsize']=(8,8)
+```
+
+<!-- #region id="-qa5ejXJYCS0" -->
+Please insert you  firstname  and name below:
+Kinga Klima
+<!-- #endregion -->
+
+```{python id="If2lJ286Nh-9"}
+from  sklearn.model_selection import train_test_split
+seed = 31287
+```
+
+```{python id="76E1eL-ANrew"}
+data = pd.read_csv('data/banknotes_data.csv')
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="pv7QHcDYN9C9", outputId="7e8ba040-e6a3-4521-f8da-508f383ddff4"}
+data.head()
+data.describe()
+data.info()
+data_train, data_test = train_test_split(data, test_size=0.2, shuffle=True, stratify=data.loc[:,'counterfeit'], random_state=seed)
+data_train
+lbls_train = data_train['counterfeit']
+lbls_test = data_test['counterfeit']
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 250}, id="GSaWY8tJObPm", outputId="4dcfbd80-85b1-4781-8cf8-d8c660f8ad76"}
+fig, ax = plt.subplots(1,4, figsize=(22,5))
+for i in range(4):
+    ax[i].hist(data_train[lbls_train==0].iloc[:,i], bins=32, histtype='step', color='blue')
+    ax[i].hist(data_train[lbls_train==1].iloc[:,i], bins=32, histtype='step', color='red')
+    ax[i].hist(data_train[lbls_train==0].iloc[:,i], bins=32, histtype='bar', color='lightblue', alpha=0.25)
+    ax[i].hist(data_train[lbls_train==1].iloc[:,i], bins=32, histtype='bar', color='orange', alpha =0.25)
+```
+
+<!-- #region id="rvTrEdXzOeJ-" -->
+# Problem 1
+<!-- #endregion -->
+
+<!-- #region id="h-RAoGI_SmSo" -->
+Using  the [GaussianNB](https://scikit-learn.org/stable/modules/generated/sklearn.naive_bayes.GaussianNB.html) function construct the  Gaussian  Bayes classifier using only one feature. Which feature will you choose? Calculate the confusion matrix (normalized as to show rates), ROC AUC score and plot ROC curve. Do this both for training and validation set. Plot both curves on the same plot.
+
+__Hint__ For calculating metrics and plotting ROC curves you may use functions from scikit-learn: `roc_curve`, `roc_auc_score` and `confusion matrix`. For estimating normal distribution parameters  use `norm.fit` `from scipy.stats`. Use `norm.pdf` for normal probability density function.
+<!-- #endregion -->
+
+<!-- #region id="4-XWrd3MXI-G" -->
+Which feature did you choose?
+<!-- #endregion -->
+
+<!-- #region id="081ffb2a" -->
+### Feature Selection for Problem 1
+
+Based on the histograms generated earlier, feature 'a0' shows the clearest separation between the two classes.
+<!-- #endregion -->
+
+```{python id="68423e16"}
+# Data Preparation for Problem 1
+X_train_a0 = data_train[['a0']]
+y_train = lbls_train
+X_test_a0 = data_test[['a0']]
+y_test = lbls_test
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 80}, id="4a490fa2", outputId="213ee032-7ea3-4a50-efc9-7061a4ccd251"}
+# Model Training for Problem 1
+gnb_a0 = GaussianNB()
+gnb_a0.fit(X_train_a0, y_train)
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="544a42b4", outputId="7c8e607d-fe38-4b10-a43a-8805a1ebb983"}
+# Training Set Evaluation
+
+y_train_pred_prob_a0 = gnb_a0.predict_proba(X_train_a0)[:, 1]
+y_train_pred_a0 = gnb_a0.predict(X_train_a0)
+
+fpr_train_a0, tpr_train_a0, _ = roc_curve(y_train, y_train_pred_prob_a0)
+auc_train_a0 = roc_auc_score(y_train, y_train_pred_prob_a0)
+
+cm_train_a0 = confusion_matrix(y_train, y_train_pred_a0, normalize='true')
+
+print(f"Training ROC AUC Score: {auc_train_a0:.4f}")
+print("Normalized Confusion Matrix (Training Set):")
+disp = ConfusionMatrixDisplay(confusion_matrix=cm_train_a0, display_labels=[0, 1])
+disp.plot(cmap='Blues')
+plt.title('Normalized Confusion Matrix (Training Set - Feature a0)')
+plt.show()
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="ee88130f", outputId="33ef1d42-ac70-4ae3-cb19-5e8229196630"}
+# Test Set Evaluation
+
+y_test_pred_prob_a0 = gnb_a0.predict_proba(X_test_a0)[:, 1]
+y_test_pred_a0 = gnb_a0.predict(X_test_a0)
+
+fpr_test_a0, tpr_test_a0, _ = roc_curve(y_test, y_test_pred_prob_a0)
+auc_test_a0 = roc_auc_score(y_test, y_test_pred_prob_a0)
+
+cm_test_a0 = confusion_matrix(y_test, y_test_pred_a0, normalize='true')
+
+print(f"Test ROC AUC Score: {auc_test_a0:.4f}")
+print("Normalized Confusion Matrix (Test Set):")
+disp = ConfusionMatrixDisplay(confusion_matrix=cm_test_a0, display_labels=[0, 1])
+disp.plot(cmap='Blues')
+plt.title('Normalized Confusion Matrix (Test Set - Feature a0)')
+plt.show()
+
+fprs_test_a0 = fpr_test_a0
+tprs_test_a0 = tpr_test_a0
+aucs_test_a0 = auc_test_a0
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 735}, id="1a722645", outputId="7da2adf7-0290-4b1b-f522-e6bfede23f8a"}
+# ROC Curve Plot
+
+print("ROC Curve Plot for Problem 1:")
+plt.figure(figsize=(8, 8))
+plt.plot(fpr_train_a0, tpr_train_a0, label=f'Train ROC (AUC = {auc_train_a0:.2f})')
+plt.plot(fpr_test_a0, tpr_test_a0, label=f'Test ROC (AUC = {auc_test_a0:.2f})', linestyle='--')
+plt.plot([0, 1], [0, 1], 'k--', label='Random Classifier')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve for Gaussian Naive Bayes (Feature a0)')
+plt.legend()
+plt.grid(True)
+plt.show()
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 424}, id="hEyjQ3H1S48A", outputId="7a335ef0-9a55-4eab-b9ea-dc5ce4d9e06e"}
+data_train
+```
+
+<!-- #region id="AUnfTzp1S8Xs" -->
+# Problem 2
+<!-- #endregion -->
+
+<!-- #region id="hSXr3b3hS-0U" -->
+Same as Problem 1 but now construct Gaussian Naive Bayes using two features. Additionally  compare ROC curve obtained with this and previous  classifier on the test set. What is the improvement of AUC score on the test set?
+<!-- #endregion -->
+
+<!-- #region id="chPdG86oZ4jk" -->
+### Feature Selection for Problem 2
+
+I'll select **'a0'**' and **''a1'** as the two features for constructing this Gaussian Naive Bayes classifier, as they appear to offer the best combined discriminatory power based on visual inspection.
+<!-- #endregion -->
+
+```{python id="f042049b"}
+# Data Preparation for Problem 2
+X_train_a0a1 = data_train[['a0', 'a1']]
+y_train = lbls_train
+X_test_a0a1 = data_test[['a0', 'a1']]
+y_test = lbls_test
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 80}, id="82bc8073", outputId="98411c05-5eef-41fd-b246-3560ca946285"}
+# Model Training for Problem 2
+gnb_a0a1 = GaussianNB()
+gnb_a0a1.fit(X_train_a0a1, y_train)
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="2849b0d8", outputId="4595fcec-0536-42cc-f3d4-fde217119c7a"}
+# Training Set Evaluation (Features 'a0' and 'a1')
+
+y_train_pred_prob_a0a1 = gnb_a0a1.predict_proba(X_train_a0a1)[:, 1]
+y_train_pred_a0a1 = gnb_a0a1.predict(X_train_a0a1)
+
+fpr_train_a0a1, tpr_train_a0a1, _ = roc_curve(y_train, y_train_pred_prob_a0a1)
+auc_train_a0a1 = roc_auc_score(y_train, y_train_pred_prob_a0a1)
+
+cm_train_a0a1 = confusion_matrix(y_train, y_train_pred_a0a1, normalize='true')
+
+print(f"Training ROC AUC Score: {auc_train_a0a1:.4f}")
+print("Normalized Confusion Matrix (Training Set):")
+disp = ConfusionMatrixDisplay(confusion_matrix=cm_train_a0a1, display_labels=[0, 1])
+disp.plot(cmap='Purples')
+plt.title('Normalized Confusion Matrix (Training Set - Features a0, a1)')
+plt.show()
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 690}, id="a14974c9", outputId="bc69df07-8d1f-4ab4-bb38-ed167f5800e7"}
+# Test Set Evaluation (Features 'a0' and 'a1')
+
+y_test_pred_prob_a0a1 = gnb_a0a1.predict_proba(X_test_a0a1)[:, 1]
+y_test_pred_a0a1 = gnb_a0a1.predict(X_test_a0a1)
+
+fpr_test_a0a1, tpr_test_a0a1, _ = roc_curve(y_test, y_test_pred_prob_a0a1)
+auc_test_a0a1 = roc_auc_score(y_test, y_test_pred_prob_a0a1)
+
+cm_test_a0a1 = confusion_matrix(y_test, y_test_pred_a0a1, normalize='true')
+
+print(f"Test ROC AUC Score: {auc_test_a0a1:.4f}")
+print("Normalized Confusion Matrix (Test Set):")
+disp = ConfusionMatrixDisplay(confusion_matrix=cm_test_a0a1, display_labels=[0, 1])
+disp.plot(cmap='Purples')
+plt.title('Normalized Confusion Matrix (Test Set - Features a0, a1)')
+plt.show()
+
+fprs_test_a0a1 = fpr_test_a0a1
+tprs_test_a0a1 = tpr_test_a0a1
+aucs_test_a0a1 = auc_test_a0a1
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 735}, id="819744d8", outputId="a0f6236d-fa4a-48d3-d064-50e60e93acb0"}
+# ROC Curve Plot
+
+print("ROC Curve Plot for Problem 2:")
+plt.figure(figsize=(8, 8))
+plt.plot(fpr_train_a0a1, tpr_train_a0a1, label=f'Train ROC (AUC = {auc_train_a0a1:.2f})')
+plt.plot(fpr_test_a0a1, tpr_test_a0a1, label=f'Test ROC (AUC = {auc_test_a0a1:.2f})', linestyle='--')
+plt.plot([0, 1], [0, 1], 'k--', label='Random Classifier')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve for Gaussian Naive Bayes (Features a0, a1)')
+plt.legend()
+plt.grid(True)
+plt.show()
+```
+
+<!-- #region id="_Nyq31d8TAhi" -->
+# Problem 3
+<!-- #endregion -->
+
+<!-- #region id="9rCiyDccTDf-" -->
+Same as Problem 2 but now implement Gaussian Naive Bayes using all features. Show confusion matrix only for test set. Compare all three ROC curves on the test set, same with AUC score.
+<!-- #endregion -->
+
+```{python id="f84eb545"}
+# Data Preparation for Problem 3 (All Features)
+X_train_all = data_train[['a0', 'a1', 'a2', 'a3']]
+y_train = lbls_train
+X_test_all = data_test[['a0', 'a1', 'a2', 'a3']]
+y_test = lbls_test
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 80}, id="6215a4f4", outputId="28c18811-3aaf-4993-b59d-c9b90281f3f5"}
+# Model Training for Problem 3 (All Features)
+gnb_all = GaussianNB()
+gnb_all.fit(X_train_all, y_train)
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="259e4a70", outputId="d590247f-4e1c-4a98-e3c5-5d6ac1bbf8a2"}
+# Training Set Evaluation (All Features)
+
+y_train_pred_prob_all = gnb_all.predict_proba(X_train_all)[:, 1]
+y_train_pred_all = gnb_all.predict(X_train_all)
+
+fpr_train_all, tpr_train_all, _ = roc_curve(y_train, y_train_pred_prob_all)
+auc_train_all = roc_auc_score(y_train, y_train_pred_prob_all);
+
+cm_train_all = confusion_matrix(y_train, y_train_pred_all, normalize='true')
+
+print(f"Training ROC AUC Score: {auc_train_all:.4f}")
+print("Normalized Confusion Matrix (Training Set):")
+disp = ConfusionMatrixDisplay(confusion_matrix=cm_train_all, display_labels=[0, 1])
+disp.plot(cmap='Greens')
+plt.title('Normalized Confusion Matrix (Training Set - All Features)')
+plt.show()
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="685e5cda", outputId="819e476e-4089-48bc-ec7b-b684b5df7f67"}
+# Test Set Evaluation (All Features)
+
+y_test_pred_prob_all = gnb_all.predict_proba(X_test_all)[:, 1]
+y_test_pred_all = gnb_all.predict(X_test_all)
+
+fpr_test_all, tpr_test_all, _ = roc_curve(y_test, y_test_pred_prob_all)
+auc_test_all = roc_auc_score(y_test, y_test_pred_prob_all)
+
+cm_test_all = confusion_matrix(y_test, y_test_pred_all, normalize='true')
+
+print(f"Test ROC AUC Score: {auc_test_all:.4f}")
+print("Normalized Confusion Matrix (Test Set):")
+disp = ConfusionMatrixDisplay(confusion_matrix=cm_test_all, display_labels=[0, 1])
+disp.plot(cmap='Greens')
+plt.title('Normalized Confusion Matrix (Test Set - All Features)')
+plt.show()
+
+fprs_test_all = fpr_test_all
+tprs_test_all = tpr_test_all
+aucs_test_all = auc_test_all
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 735}, id="b0152838", outputId="201e3ba7-bf76-4448-d4cc-74f2b3eb8158"}
+# ROC Curve Plot
+
+print("ROC Curve Plot for Problem 3:")
+plt.figure(figsize=(8, 8))
+plt.plot(fpr_test_all, tpr_test_all, label=f'Test ROC (All Features, AUC = {auc_test_all:.2f})')
+plt.plot([0, 1], [0, 1], 'k--', label='Random Classifier')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve for Gaussian Naive Bayes (All Features)')
+plt.legend()
+plt.grid(True)
+plt.show()
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 787}, id="67cd11bc", outputId="fbb263c9-4170-4816-b62b-ab3b41c5fdb9"}
+# Comparison of All Three ROC Curves on Test Set
+plt.figure(figsize=(10, 8))
+plt.plot(fprs_test_a0, tprs_test_a0, label=f'Test ROC (1 Feature: a0, AUC = {aucs_test_a0:.2f})')
+plt.plot(fprs_test_a0a1, tprs_test_a0a1, label=f'Test ROC (2 Features: a0, a1, AUC = {aucs_test_a0a1:.2f})', linestyle='--')
+plt.plot(fprs_test_all, tprs_test_all, label=f'Test ROC (All Features, AUC = {aucs_test_all:.2f})', linestyle=':')
+plt.plot([0, 1], [0, 1], 'k--', label='Random Classifier')
+plt.xlabel('False Positive Rate')
+plt.ylabel('True Positive Rate')
+plt.title('ROC Curve Comparison on Test Set (1, 2, and All Features)')
+plt.legend()
+plt.grid(True)
+plt.show()
+
+print("\n--- AUC Score Improvements ---")
+auc_improvement_1_to_2 = aucs_test_a0a1 - aucs_test_a0
+auc_improvement_2_to_all = aucs_test_all - aucs_test_a0a1
+print(f"Improvement in AUC score from 1 feature (a0) to 2 features (a0, a1): {auc_improvement_1_to_2:.4f}")
+print(f"Improvement in AUC score from 2 features (a0, a1) to All features: {auc_improvement_2_to_all:.4f}")
+```
