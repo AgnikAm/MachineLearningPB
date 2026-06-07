@@ -1,0 +1,367 @@
+---
+jupyter:
+  jupytext:
+    text_representation:
+      extension: .Rmd
+      format_name: rmarkdown
+      format_version: '1.2'
+      jupytext_version: 1.19.3
+  kernelspec:
+    display_name: Python 3
+    name: python3
+---
+
+```{python id="LTK-TnV3ru0C"}
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import scipy.stats as st
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay
+```
+
+```{python id="O7YExpH9wM-j"}
+import  matplotlib.pyplot as plt
+plt.rcParams['figure.figsize']=(8,8)
+```
+
+<!-- #region id="0XafdbX9wQnE" -->
+Please insert you  firstname  and name below: Kinga Klima
+<!-- #endregion -->
+
+```{python id="Dq4-IelPwSeP"}
+from  sklearn.model_selection import train_test_split
+seed = 31287
+```
+
+```{python id="CDgP4cngwWgv"}
+data = pd.read_csv('data/banknotes_data.csv')
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 206}, id="IbWiSDRIwXVm", outputId="0cbaae54-43bb-4c86-dbad-52895f022325"}
+data.head()
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 300}, id="RV7N1ocrwX5s", outputId="ab30157c-b06f-4990-d948-7b288c49dae0"}
+data.describe()
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="qdFvgfvOwYlC", outputId="a3cb2008-7755-4015-a3e5-516fcdccf133"}
+data.info()
+```
+
+```{python id="C-olXeETwZoC"}
+data_train, data_test = train_test_split(data, test_size=0.2, shuffle=True, stratify=data.loc[:,'counterfeit'], random_state=seed)
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 424}, id="X5QNIOqSwahY", outputId="11b63ea0-5816-4fec-c8d8-22280b7d6a2f"}
+data_train
+```
+
+```{python id="l88i4_wiwbmk"}
+lbls_train = data_train['counterfeit']
+lbls_test = data_test['counterfeit']
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 370}, id="uiaSgKx2wc-H", outputId="fdc1c7a8-f898-4adf-dd96-4c7ff6b44fa5"}
+fig, ax = plt.subplots(1,4, figsize=(22,5))
+for i in range(4):
+    ax[i].hist(data_train[lbls_train==0].iloc[:,i], bins=32, histtype='step', color='blue')
+    ax[i].hist(data_train[lbls_train==1].iloc[:,i], bins=32, histtype='step', color='red')
+    ax[i].hist(data_train[lbls_train==0].iloc[:,i], bins=32, histtype='bar', color='lightblue', alpha=0.25)
+    ax[i].hist(data_train[lbls_train==1].iloc[:,i], bins=32, histtype='bar', color='orange', alpha =0.25)
+```
+
+<!-- #region id="-IK3yrymweUE" -->
+# Problem 1
+<!-- #endregion -->
+
+<!-- #region id="cF8wzmc7whx2" -->
+Train a neural network classifier to predict counterfeit banknotes. Use the features `a0` and `a3`. Calculate the confussion matrix  and AUC score.
+<!-- #endregion -->
+
+```{python id="kRNMTNpfwe1A"}
+import torch
+import torch.nn as tnn
+```
+
+```{python id="QyqYJeMdwjqO"}
+features= [0, 3]
+nf=len(features)
+```
+
+```{python id="3AGZYUKMwkts"}
+features_train = torch.from_numpy(data_train.values[:,features]).to(dtype=torch.float32)
+labels_train = torch.from_numpy(data_train.values[:,4:5]).to(dtype=torch.float32)
+```
+
+```{python id="vbGV3-DNwl5_"}
+features_test = torch.from_numpy(data_test.values[:,features]).to(dtype=torch.float32)
+labels_test = torch.from_numpy(data_test.values[:,4:5]).to(dtype=torch.float32)
+```
+
+```{python id="xAEjI_vAwnVS"}
+model = tnn.Sequential(tnn.Linear(in_features=nf, out_features=1), tnn.Sigmoid())
+```
+
+```{python id="MSJ594sowopq"}
+from sklearn.metrics import roc_curve, confusion_matrix, accuracy_score
+```
+
+```{python id="vrnHJbyGwpvy"}
+y_true = labels_test.numpy()
+with torch.no_grad():
+  y_proba = model(features_test);
+  y_predicted = 1*(y_proba>0.5)
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="WuLGJ5C8wqew", outputId="61cf0e6a-7cae-4733-f90c-ca8b46343a80"}
+accuracy_score(y_true, y_pred=y_predicted)
+```
+
+<!-- #region id="bsIn7pwa4p6i" -->
+**Model 1**
+<!-- #endregion -->
+
+```{python id="2-1Cygndy72M"}
+class NeuralNetwork(tnn.Module):
+    def __init__(self, input_size):
+        super(NeuralNetwork, self).__init__()
+        self.layer1 = tnn.Linear(input_size, 16) # First hidden layer
+        self.relu1 = tnn.ReLU()
+        self.layer2 = tnn.Linear(16, 8) # Second hidden layer
+        self.relu2 = tnn.ReLU()
+        self.output_layer = tnn.Linear(8, 1) # Output layer
+        self.sigmoid = tnn.Sigmoid()
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.relu1(x)
+        x = self.layer2(x)
+        x = self.relu2(x)
+        x = self.output_layer(x)
+        x = self.sigmoid(x)
+        return x
+
+model = NeuralNetwork(nf)
+loss_fn = tnn.BCELoss()
+```
+
+```{python id="a10bf624"}
+optimizer = torch.optim.SGD(model.parameters(),lr=0.001)
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="qDNbdcuswsWn", outputId="1e4fc629-db3d-4cf7-c904-8c6000a20402"}
+for era in range(50):
+    for epoch in range(500):
+        optimizer.zero_grad()
+        pred = model(features_train)
+        loss = loss_fn(pred, labels_train)
+        loss.backward()
+        optimizer.step()
+    with torch.no_grad():
+        pred =  model(features_train)
+        acc_train =  torch.mean(0.0+ ((pred > 0.5)== (labels_train>0.5)))
+        pred =  model(features_test)
+        acc_test =  torch.mean(0.0+ ((pred > 0.5)== (labels_test>0.5)))
+    print(acc_train, acc_test)
+```
+
+<!-- #region id="36HAocLL4rOF" -->
+**Model 2**
+<!-- #endregion -->
+
+```{python id="6e77e298"}
+class NeuralNetworkV2(tnn.Module):
+    def __init__(self, input_size):
+        super(NeuralNetworkV2, self).__init__()
+        self.layer1 = tnn.Linear(input_size, 32) # First hidden layer
+        self.relu1 = tnn.ReLU()
+        self.layer2 = tnn.Linear(32, 16) # Second hidden layer
+        self.relu2 = tnn.ReLU()
+        self.layer3 = tnn.Linear(16, 8) # Third hidden layer
+        self.relu3 = tnn.ReLU()
+        self.output_layer = tnn.Linear(8, 1) # Output layer
+        self.sigmoid = tnn.Sigmoid()
+
+    def forward(self, x):
+        x = self.layer1(x)
+        x = self.relu1(x)
+        x = self.layer2(x)
+        x = self.relu2(x)
+        x = self.layer3(x)
+        x = self.relu3(x)
+        x = self.output_layer(x)
+        x = self.sigmoid(x)
+        return x
+
+model_v2 = NeuralNetworkV2(nf)
+loss_fn_v2 = tnn.BCELoss()
+```
+
+```{python id="c745f985"}
+optimizer_v2 = torch.optim.SGD(model_v2.parameters(),lr=0.001)
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="8e18befe", outputId="360f5a9d-a580-418b-aa7d-cbf21e1449dd"}
+for era in range(50):
+    for epoch in range(500):
+        optimizer_v2.zero_grad()
+        pred = model_v2(features_train)
+        loss = loss_fn(pred, labels_train)
+        loss.backward()
+        optimizer_v2.step()
+    with torch.no_grad():
+        pred =  model_v2(features_train)
+        acc_train =  torch.mean(0.0+ ((pred > 0.5)== (labels_train>0.5)))
+        pred =  model_v2(features_test)
+        acc_test =  torch.mean(0.0+ ((pred > 0.5)== (labels_test>0.5)))
+    print(acc_train, acc_test)
+```
+
+<!-- #region id="aaa4ae18" -->
+** Model 3**
+<!-- #endregion -->
+
+```{python id="a414bfbb"}
+class NeuralNetworkV3(tnn.Module):
+    def __init__(self, input_size):
+        super(NeuralNetworkV3, self).__init__()
+        self.fc1 = tnn.Linear(input_size, 64)
+        self.bn1 = tnn.BatchNorm1d(64)
+        self.relu1 = tnn.ReLU()
+        self.dropout1 = tnn.Dropout(0.3)
+
+        self.fc2 = tnn.Linear(64, 32)
+        self.bn2 = tnn.BatchNorm1d(32)
+        self.relu2 = tnn.ReLU()
+        self.dropout2 = tnn.Dropout(0.3)
+
+        self.fc3 = tnn.Linear(32, 16)
+        self.bn3 = tnn.BatchNorm1d(16)
+        self.relu3 = tnn.ReLU()
+
+        self.output_layer = tnn.Linear(16, 1)
+        self.sigmoid = tnn.Sigmoid()
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.dropout1(x)
+
+        x = self.fc2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        x = self.dropout2(x)
+
+        x = self.fc3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
+
+        x = self.output_layer(x)
+        x = self.sigmoid(x)
+        return x
+
+model_v3 = NeuralNetworkV3(nf)
+loss_fn_v3 = tnn.BCELoss()
+```
+
+```{python id="be9627c4"}
+import torch.optim as optim
+optimizer_v3 = optim.Adam(model_v3.parameters(), lr=0.001)
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="qe2X24io-FfP", outputId="1186dee9-22d1-40d2-d3d8-7185e17e9857"}
+for era in range(100):
+    for epoch in range(500):
+        optimizer_v3.zero_grad()
+        pred = model_v3(features_train)
+        loss = loss_fn(pred, labels_train)
+        loss.backward()
+        optimizer_v3.step()
+    with torch.no_grad():
+        pred =  model_v3(features_train)
+        acc_train =  torch.mean(0.0+ ((pred > 0.5)== (labels_train>0.5)))
+        pred =  model_v3(features_test)
+        acc_test =  torch.mean(0.0+ ((pred > 0.5)== (labels_test>0.5)))
+    print(acc_train, acc_test)
+```
+
+<!-- #region id="bc12c41d" -->
+**Model 4**
+<!-- #endregion -->
+
+```{python id="d0da19d9"}
+class NeuralNetworkV4(tnn.Module):
+    def __init__(self, input_size):
+        super(NeuralNetworkV4, self).__init__()
+        self.fc1 = tnn.Linear(input_size, 128)
+        self.bn1 = tnn.BatchNorm1d(128)
+        self.relu1 = tnn.ReLU()
+        self.dropout1 = tnn.Dropout(0.4)
+
+        self.fc2 = tnn.Linear(128, 64)
+        self.bn2 = tnn.BatchNorm1d(64)
+        self.relu2 = tnn.ReLU()
+        self.dropout2 = tnn.Dropout(0.4)
+
+        self.fc3 = tnn.Linear(64, 32)
+        self.bn3 = tnn.BatchNorm1d(32)
+        self.relu3 = tnn.ReLU()
+        self.dropout3 = tnn.Dropout(0.3)
+
+        self.fc4 = tnn.Linear(32, 16)
+        self.bn4 = tnn.BatchNorm1d(16)
+        self.relu4 = tnn.ReLU()
+
+        self.output_layer = tnn.Linear(16, 1)
+        self.sigmoid = tnn.Sigmoid()
+
+    def forward(self, x):
+        x = self.fc1(x)
+        x = self.bn1(x)
+        x = self.relu1(x)
+        x = self.dropout1(x)
+
+        x = self.fc2(x)
+        x = self.bn2(x)
+        x = self.relu2(x)
+        x = self.dropout2(x)
+
+        x = self.fc3(x)
+        x = self.bn3(x)
+        x = self.relu3(x)
+        x = self.dropout3(x)
+
+        x = self.fc4(x)
+        x = self.bn4(x)
+        x = self.relu4(x)
+
+        x = self.output_layer(x)
+        x = self.sigmoid(x)
+        return x
+
+model_v4 = NeuralNetworkV4(nf)
+loss_fn_v4 = tnn.BCELoss()
+```
+
+```{python id="21cd1270"}
+import torch.optim as optim
+optimizer_v4 = optim.Adam(model_v4.parameters(), lr=0.0005)
+```
+
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="3MNZf63r-SOj", outputId="d2b5f2ce-acb0-4eb8-9f90-0850eff5e14e"}
+for era in range(100):
+    for epoch in range(500):
+        optimizer_v4.zero_grad()
+        pred = model_v4(features_train)
+        loss = loss_fn(pred, labels_train)
+        loss.backward()
+        optimizer_v4.step()
+    with torch.no_grad():
+        pred =  model_v4(features_train)
+        acc_train =  torch.mean(0.0+ ((pred > 0.5)== (labels_train>0.5)))
+        pred =  model_v4(features_test)
+        acc_test =  torch.mean(0.0+ ((pred > 0.5)== (labels_test>0.5)))
+    print(acc_train, acc_test)
+```
