@@ -20,8 +20,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import scipy.stats as st
+from sklearn.naive_bayes import GaussianNB
 
-from sklearn.metrics import classification_report, ConfusionMatrixDisplay
+from sklearn.metrics import classification_report, ConfusionMatrixDisplay, roc_curve, roc_auc_score, confusion_matrix
 ```
 
 ```{python id="Hbl38mrnNd8z"}
@@ -43,7 +44,7 @@ seed = 31287
 data = pd.read_csv('data/banknotes_data.csv')
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/'}, id="pv7QHcDYN9C9", outputId="7e8ba040-e6a3-4521-f8da-508f383ddff4"}
+```{python colab={'base_uri': 'https://localhost:8080/'}, id="pv7QHcDYN9C9", outputId="284f2125-18e4-4fd2-ba98-cd5e6ce79fea"}
 data.head()
 data.describe()
 data.info()
@@ -53,7 +54,7 @@ lbls_train = data_train['counterfeit']
 lbls_test = data_test['counterfeit']
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 250}, id="GSaWY8tJObPm", outputId="4dcfbd80-85b1-4781-8cf8-d8c660f8ad76"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 320}, id="GSaWY8tJObPm", outputId="34d36286-fc6b-4b32-f485-7d6d028d0492"}
 fig, ax = plt.subplots(1,4, figsize=(22,5))
 for i in range(4):
     ax[i].hist(data_train[lbls_train==0].iloc[:,i], bins=32, histtype='step', color='blue')
@@ -90,13 +91,13 @@ X_test_a0 = data_test[['a0']]
 y_test = lbls_test
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 80}, id="4a490fa2", outputId="213ee032-7ea3-4a50-efc9-7061a4ccd251"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 80}, id="4a490fa2", outputId="5c445435-5976-4570-d2b5-4450b9a0c110"}
 # Model Training for Problem 1
 gnb_a0 = GaussianNB()
 gnb_a0.fit(X_train_a0, y_train)
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="544a42b4", outputId="7c8e607d-fe38-4b10-a43a-8805a1ebb983"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="544a42b4", outputId="f92de50b-5bb4-4f87-d237-c9ca79aa70bd"}
 # Training Set Evaluation
 
 y_train_pred_prob_a0 = gnb_a0.predict_proba(X_train_a0)[:, 1]
@@ -115,7 +116,7 @@ plt.title('Normalized Confusion Matrix (Training Set - Feature a0)')
 plt.show()
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="ee88130f", outputId="33ef1d42-ac70-4ae3-cb19-5e8229196630"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="ee88130f", outputId="3cd04b82-7c13-4a80-b53f-abcb28afb5a0"}
 # Test Set Evaluation
 
 y_test_pred_prob_a0 = gnb_a0.predict_proba(X_test_a0)[:, 1]
@@ -138,7 +139,7 @@ tprs_test_a0 = tpr_test_a0
 aucs_test_a0 = auc_test_a0
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 735}, id="1a722645", outputId="7da2adf7-0290-4b1b-f522-e6bfede23f8a"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 735}, id="1a722645", outputId="438bcc01-50da-47b4-bf81-18da064d25cf"}
 # ROC Curve Plot
 
 print("ROC Curve Plot for Problem 1:")
@@ -180,13 +181,13 @@ X_test_a0a1 = data_test[['a0', 'a1']]
 y_test = lbls_test
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 80}, id="82bc8073", outputId="98411c05-5eef-41fd-b246-3560ca946285"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 80}, id="82bc8073", outputId="74c6ffb2-2432-4368-f3f2-9ab63e07a7ed"}
 # Model Training for Problem 2
 gnb_a0a1 = GaussianNB()
 gnb_a0a1.fit(X_train_a0a1, y_train)
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="2849b0d8", outputId="4595fcec-0536-42cc-f3d4-fde217119c7a"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="2849b0d8", outputId="cf0b717d-7d3d-4fde-9549-b0572455b938"}
 # Training Set Evaluation (Features 'a0' and 'a1')
 
 y_train_pred_prob_a0a1 = gnb_a0a1.predict_proba(X_train_a0a1)[:, 1]
@@ -205,7 +206,7 @@ plt.title('Normalized Confusion Matrix (Training Set - Features a0, a1)')
 plt.show()
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 690}, id="a14974c9", outputId="bc69df07-8d1f-4ab4-bb38-ed167f5800e7"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 690}, id="a14974c9", outputId="72ab8b69-5e79-4e69-89e6-0aca83b0cf2b"}
 # Test Set Evaluation (Features 'a0' and 'a1')
 
 y_test_pred_prob_a0a1 = gnb_a0a1.predict_proba(X_test_a0a1)[:, 1]
@@ -228,7 +229,7 @@ tprs_test_a0a1 = tpr_test_a0a1
 aucs_test_a0a1 = auc_test_a0a1
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 735}, id="819744d8", outputId="a0f6236d-fa4a-48d3-d064-50e60e93acb0"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 735}, id="819744d8", outputId="fc2faab2-0505-4863-fb9f-80dc7a3f853a"}
 # ROC Curve Plot
 
 print("ROC Curve Plot for Problem 2:")
@@ -260,13 +261,13 @@ X_test_all = data_test[['a0', 'a1', 'a2', 'a3']]
 y_test = lbls_test
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 80}, id="6215a4f4", outputId="28c18811-3aaf-4993-b59d-c9b90281f3f5"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 80}, id="6215a4f4", outputId="cd46cd6b-d16c-4c4b-80d1-ebc9dbac0ab1"}
 # Model Training for Problem 3 (All Features)
 gnb_all = GaussianNB()
 gnb_all.fit(X_train_all, y_train)
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="259e4a70", outputId="d590247f-4e1c-4a98-e3c5-5d6ac1bbf8a2"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="259e4a70", outputId="075f6733-d8b5-46ab-9a87-83cdccc12fc4"}
 # Training Set Evaluation (All Features)
 
 y_train_pred_prob_all = gnb_all.predict_proba(X_train_all)[:, 1]
@@ -285,7 +286,7 @@ plt.title('Normalized Confusion Matrix (Training Set - All Features)')
 plt.show()
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="685e5cda", outputId="819e476e-4089-48bc-ec7b-b684b5df7f67"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 688}, id="685e5cda", outputId="c33d0099-dc75-4346-eb8b-91069ab8eb4a"}
 # Test Set Evaluation (All Features)
 
 y_test_pred_prob_all = gnb_all.predict_proba(X_test_all)[:, 1]
@@ -308,7 +309,7 @@ tprs_test_all = tpr_test_all
 aucs_test_all = auc_test_all
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 735}, id="b0152838", outputId="201e3ba7-bf76-4448-d4cc-74f2b3eb8158"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 735}, id="b0152838", outputId="e987908e-d440-4b07-8ea5-6100ea5d7c45"}
 # ROC Curve Plot
 
 print("ROC Curve Plot for Problem 3:")
@@ -323,7 +324,7 @@ plt.grid(True)
 plt.show()
 ```
 
-```{python colab={'base_uri': 'https://localhost:8080/', 'height': 787}, id="67cd11bc", outputId="fbb263c9-4170-4816-b62b-ab3b41c5fdb9"}
+```{python colab={'base_uri': 'https://localhost:8080/', 'height': 787}, id="67cd11bc", outputId="16093ac1-bd85-4ae0-ef09-bc88a8a1c613"}
 # Comparison of All Three ROC Curves on Test Set
 plt.figure(figsize=(10, 8))
 plt.plot(fprs_test_a0, tprs_test_a0, label=f'Test ROC (1 Feature: a0, AUC = {aucs_test_a0:.2f})')
